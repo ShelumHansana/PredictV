@@ -1,0 +1,131 @@
+{
+  "health_scorer": {
+    "random_forest": {
+      "r2": 0.9939674684806638,
+      "mae": 1.414563636810789,
+      "rmse": 1.8428093952204858,
+      "cv_r2_mean": 0.9662043637153392,
+      "cv_r2_std": 0.0019172278829221788
+    },
+    "gradient_boosting": {
+      "r2": 0.9994888223470747,
+      "mae": 0.42395671115334255,
+      "rmse": 0.5364343105093972,
+      "cv_r2_mean": 0.9644038899546399,
+      "cv_r2_std": 0.002706384790859803
+    },
+    "xgboost": {
+      "r2": 0.9995065331459045,
+      "mae": 0.39962443709373474,
+      "rmse": 0.5270563960075378,
+      "cv_r2_mean": 0.9642849564552307,
+      "cv_r2_std": 0.00326882681469638
+    },
+    "lightgbm": {
+      "r2": 0.9971191847442323,
+      "mae": 0.987021501407645,
+      "rmse": 1.2734688375322742,
+      "cv_r2_mean": 0.9653770154801611,
+      "cv_r2_std": 0.0018977945964892082
+    },
+    "catboost": {
+      "r2": 0.9879268972138585,
+      "mae": 2.090559415026901,
+      "rmse": 2.606994211840182,
+      "cv_r2_mean": 0.9656556988017204,
+      "cv_r2_std": 0.0017145941867079807
+    }
+  },
+  "emission_classifier": {
+    "random_forest": {
+      "accuracy": 1.0,
+      "f1_weighted": 1.0,
+      "cv_f1_mean": 0.9709068586150347,
+      "cv_f1_std": 0.011722252228348861
+    },
+    "gradient_boosting": {
+      "accuracy": 1.0,
+      "f1_weighted": 1.0,
+      "cv_f1_mean": 0.9865546960276879,
+      "cv_f1_std": 0.0038302455029736436
+    },
+    "xgboost": {
+      "accuracy": 1.0,
+      "f1_weighted": 1.0,
+      "cv_f1_mean": 0.9853964809468275,
+      "cv_f1_std": 0.0026361244223628982
+    },
+    "lightgbm": {
+      "accuracy": 1.0,
+      "f1_weighted": 1.0,
+      "cv_f1_mean": 0.9861022446361367,
+      "cv_f1_std": 0.0038209162259567457
+    },
+    "catboost": {
+      "accuracy": 0.997,
+      "f1_weighted": 0.9970550881410256,
+      "cv_f1_mean": 0.978370281892673,
+      "cv_f1_std": 0.005201829207629268
+    }
+  },
+  "fault_detector": {
+    "random_forest": {
+      "hamming_loss": 0.022904761904761903,
+      "f1_micro": 0.9743480347714788,
+      "f1_macro": 0.9742120964463359,
+      "accuracy_per_label": 0.9770952380952381
+    },
+    "xgboost": {
+      "hamming_loss": 0.0,
+      "f1_micro": 1.0,
+      "f1_macro": 1.0,
+      "accuracy_per_label": 1.0
+    },
+    "lightgbm": {
+      "hamming_loss": 4.761904761904762e-05,
+      "f1_micro": 0.9999458610795301,
+      "f1_macro": 0.999940919295758,
+      "accuracy_per_label": 0.9999523809523809
+    }
+  },
+  "rul_predictor": {
+    "remaining_life_km": {},
+    "km_to_maintenance": {},
+    "km_to_major_repair": {},
+    "breakdown_probability": {}
+  },
+  "forecaster": {
+    "forecast_30d_health": {
+      "best_model": "lightgbm",
+      "cv_r2": 0.9651993305633081
+    },
+    "forecast_90d_health": {
+      "best_model": "gradient_boosting",
+      "cv_r2": 0.9630179265293982
+    },
+    "forecast_180d_health": {
+      "best_model": "xgboost",
+      "cv_r2": 0.9592648148536682
+    },
+    "forecast_365d_health": {
+      "best_model": "xgboost",
+      "cv_r2": 0.9428681015968323
+    },
+    "forecast_30d_risk": {
+      "best_model": "gradient_boosting",
+      "cv_r2": 0.9648100000132667
+    },
+    "forecast_90d_risk": {
+      "best_model": "gradient_boosting",
+      "cv_r2": 0.9630701474908054
+    },
+    "forecast_180d_risk": {
+      "best_model": "xgboost",
+      "cv_r2": 0.9593342065811157
+    },
+    "forecast_365d_risk": {
+      "best_model": "gradient_boosting",
+      "cv_r2": 0.9429160527642629
+    }
+  }
+}
