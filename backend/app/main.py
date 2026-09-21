@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,26 +31,26 @@ from app.database import close_db, init_db
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown events."""
     # Startup
-    print("🚀 Starting PredictV...")
+    print("[INFO] Starting PredictV...")
     await init_db()
-    print("✅ Database initialized")
+    print("[OK] Database initialized")
 
     # Try to load ML models
     try:
         from app.api.v1.emissions import get_pipeline
         pipeline = get_pipeline()
         if pipeline.is_loaded:
-            print("✅ ML models loaded")
+            print("[OK] ML models loaded successfully")
         else:
-            print("⚠️  ML models not found — using rule-based predictions")
+            print("[WARN] ML models not found — using rule-based fallback")
     except Exception as e:
-        print(f"⚠️  ML model loading skipped: {e}")
+        print(f"[WARN] ML model loading skipped: {e}")
 
     yield
 
     # Shutdown
     await close_db()
-    print("👋 PredictV shutdown complete")
+    print("[INFO] PredictV shutdown complete")
 
 
 app = FastAPI(
@@ -109,3 +109,12 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/{filename:path}", include_in_schema=False)
+async def serve_static(filename: str):
+    """Serve static frontend assets (css, js, images)."""
+    file_path = _FRONTEND_DIR / filename
+    if file_path.exists() and file_path.is_file():
+        return FileResponse(str(file_path))
+    raise HTTPException(status_code=404, detail="Not Found")

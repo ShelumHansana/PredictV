@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PredictV — AI Motorbike Exhaust & Engine Health Diagnostic Suite</title>
+  <meta name="description" content="Predict petrol motorbike engine health, Euro emission compliance, mechanical faults, and remaining useful life using trained CatBoost, Random Forest, and LightGBM machine learning models.">
+  
+  <!-- Google Fonts: Outfit & Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Background Glow Accents -->
+  <div class="bg-glow bg-glow-purple"></div>
+  <div class="bg-glow bg-glow-cyan"></div>
+
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">Predict<span>V</span></div>
+          <div class="brand-subtitle">Petrol Motorbike ML Diagnostics & Health Intelligence</div>
+        </div>
+      </div>
+
+      <div class="header-badges">
+        <div class="model-badge" title="Active ML Architecture">
+          <span class="badge-dot pulse"></span>
+          <span class="badge-text">CatBoost • RF • LightGBM • MultiOutput</span>
+        </div>
+        <div id="backend-status-badge" class="status-badge" title="API Status">
+          <span class="status-dot"></span>
+          <span id="backend-status-text">Checking API...</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-open-info" class="btn-icon" title="Model Info & Metrics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>Model Specs</span>
+        </button>
+        <button id="btn-open-history" class="btn-icon" title="Test History">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>History (<span id="history-count">0</span>)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    
+    <!-- Hero / Quick Scenarios Bar -->
+    <section class="preset-section">
+      <div class="preset-header">
+        <div class="preset-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Quick Preset Scenarios (Load Sample Bike & Test Readings):</span>
+        </div>
+        <button id="btn-clear-form" class="btn-link" title="Reset all inputs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          Reset Form
+        </button>
+      </div>
+      <div class="preset-chips">
+        <button class="preset-chip chip-good" data-preset="healthy">
+          <span class="chip-status-dot"></span>
+          <strong>Pristine 160cc Commuter</strong>
+          <span class="chip-sub">Honda Hornet (25k km, Optimal Sensors)</span>
+        </button>
+        <button class="preset-chip chip-warn" data-preset="rich">
+          <span class="chip-status-dot"></span>
+          <strong>Rich Mixture & Fuel Waste</strong>
+          <span class="chip-sub">Bajaj Pulsar 150 (High CO & Low Lambda)</span>
+        </button>
+        <button class="preset-chip chip-danger" data-preset="catalytic">
+          <span class="chip-status-dot"></span>
+          <strong>Degraded Catalytic Converter</strong>
+          <span class="chip-sub">Yamaha FZ-S (High HC, Worn Cat)</span>
+        </button>
+        <button class="preset-chip chip-danger" data-preset="overheating">
+          <span class="chip-status-dot"></span>
+          <strong>Lean Stutter & Overheating</strong>
+          <span class="chip-sub">KTM Duke 200 (118°C Temp, High NOx)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Two-Column Interactive Layout -->
+    <div class="diagnostic-grid">
+      
+      <!-- LEFT COLUMN: Manual Motorbike & Sensor Input Form -->
+      <div class="input-column">
+        <form id="bike-prediction-form" class="diagnostic-form" onsubmit="return false;">
+          
+          <!-- Card 1: Motorbike Specifications -->
+          <div class="panel card-bike-specs">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <span class="panel-step-badge">1</span>
+                <div>
+                  <h2 class="panel-title">Motorbike Specifications</h2>
+                  <p class="panel-subtitle">Enter the bike make, model, displacement, and mechanical condition</p>
+                </div>
+              </div>
+              <span class="fuel-petrol-tag" title="Trained exclusively on petrol motorbikes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M15 10h2a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L19.5 5.5"/><circle cx="9" cy="9" r="2"/></svg>
+                Petrol Motorbike
+              </span>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="bike-brand">Brand / Manufacturer</label>
+                <div class="input-with-icon">
+                  <input type="text" id="bike-brand" name="brand" list="brands-list" placeholder="e.g. Honda, Yamaha, Bajaj" value="Honda" required>
+                  <datalist id="brands-list">
+                    <option value="Honda">
+                    <option value="Yamaha">
+                    <option value="Bajaj">
+                    <option value="TVS">
+                    <option value="Royal Enfield">
+                    <option value="Suzuki">
+                    <option value="Hero">
+                    <option value="KTM">
+                    <option value="Kawasaki">
+                    <option value="BMW Motorrad">
+                  </datalist>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="bike-model">Model Name</label>
+                <input type="text" id="bike-model" name="model" placeholder="e.g. CB Hornet 160R, Pulsar NS200" value="CB Hornet 160R" required>
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label for="bike-year">Year of Manufacture</label>
+                <div class="input-with-unit">
+                  <input type="number" id="bike-year" name="year" min="1990" max="2026" value="2022" required>
+                  <span class="unit-label" id="bike-age-label">4 yrs old</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="bike-cc">Engine Displacement</label>
+                <div class="input-with-unit">
+                  <input type="number" id="bike-cc" name="engine_cc" min="50" max="2500" step="1" value="160" required>
+                  <span class="unit-label">CC</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="bike-mileage">Odometer Reading</label>
+                <div class="input-with-unit">
+                  <input type="number" id="bike-mileage" name="mileage_km" min="0" max="500000" step="100" value="25000" required>
+                  <span class="unit-label">KM</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick CC Chips -->
+            <div class="quick-cc-chips">
+              <span class="chips-label">Quick CC:</span>
+              <button type="button" class="btn-micro" data-cc="125">125cc</button>
+              <button type="button" class="btn-micro active" data-cc="160">160cc</button>
+              <button type="button" class="btn-micro" data-cc="200">200cc</button>
+              <button type="button" class="btn-micro" data-cc="250">250cc</button>
+              <button type="button" class="btn-micro" data-cc="350">350cc</button>
+            </div>
+
+            <!-- Condition Pills -->
+            <div class="form-grid-2 condition-section">
+              <div class="form-group">
+                <label>Engine Oil Condition</label>
+                <div class="pill-selector" id="oil-condition-selector">
+                  <label class="pill-option active" data-val="Good">
+                    <input type="radio" name="oil_condition" value="Good" checked>
+                    <span class="pill-dot dot-good"></span>
+                    <span>Good</span>
+                  </label>
+                  <label class="pill-option" data-val="Average">
+                    <input type="radio" name="oil_condition" value="Average">
+                    <span class="pill-dot dot-avg"></span>
+                    <span>Average</span>
+                  </label>
+                  <label class="pill-option" data-val="Poor">
+                    <input type="radio" name="oil_condition" value="Poor">
+                    <span class="pill-dot dot-poor"></span>
+                    <span>Poor</span>
+                  </label>
+                  <label class="pill-option" data-val="Critical">
+                    <input type="radio" name="oil_condition" value="Critical">
+                    <span class="pill-dot dot-crit"></span>
+                    <span>Critical</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Catalytic Converter</label>
+                <div class="pill-selector" id="catalytic-selector">
+                  <label class="pill-option active" data-val="Working">
+                    <input type="radio" name="catalytic_converter" value="Working" checked>
+                    <span class="pill-dot dot-good"></span>
+                    <span>Working</span>
+                  </label>
+                  <label class="pill-option" data-val="Degraded">
+                    <input type="radio" name="catalytic_converter" value="Degraded">
+                    <span class="pill-dot dot-avg"></span>
+                    <span>Degraded</span>
+                  </label>
+                  <label class="pill-option" data-val="Failed">
+                    <input type="radio" name="catalytic_converter" value="Failed">
+                    <span class="pill-dot dot-crit"></span>
+                    <span>Failed</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Additional Details Accordion / Toggle -->
+            <details class="advanced-details">
+              <summary>Optional Bike Identifiers (License Plate, Transmission)</summary>
+              <div class="form-grid-2 details-content">
+                <div class="form-group">
+                  <label for="bike-reg">Registration / Plate No.</label>
+                  <input type="text" id="bike-reg" name="registration_number" placeholder="e.g. WP BBD-4892" value="BBD-4892">
+                </div>
+                <div class="form-group">
+                  <label for="bike-transmission">Transmission</label>
+                  <select id="bike-transmission" name="transmission">
+                    <option value="Manual" selected>Manual (5 / 6 Speed)</option>
+                    <option value="Automatic">Automatic / CVT (Scooter)</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <!-- Card 2: Exhaust Emission & Sensor Measurements -->
+          <div class="panel card-sensor-specs">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <span class="panel-step-badge">2</span>
+                <div>
+                  <h2 class="panel-title">Exhaust & Operational Sensors</h2>
+                  <p class="panel-subtitle">Input tailpipe gas readings & engine telemetry (Euro 6 thresholds indicated)</p>
+                </div>
+              </div>
+              <span class="sensors-live-tag">
+                <span class="pulse-ring"></span>
+                Real-Time Gauges
+              </span>
+            </div>
+
+            <div class="sensor-inputs-grid">
+              
+              <!-- Carbon Monoxide (CO) -->
+              <div class="sensor-field-card" id="card-co">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>CO (% vol)</span>
+                    <span class="sensor-desc">Carbon Monoxide</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-co">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-co" name="co_percent" min="0" max="15" step="0.01" value="0.35" class="sensor-num-input">
+                  <span class="sensor-unit">%</span>
+                </div>
+                <input type="range" id="slider-co" min="0" max="5.0" step="0.05" value="0.35" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">≤0.5% Pass</span>
+                  <span class="th-mark th-warn">1.0% Warning</span>
+                  <span class="th-mark th-fail">>2.0% Fail</span>
+                </div>
+              </div>
+
+              <!-- Carbon Dioxide (CO2) -->
+              <div class="sensor-field-card" id="card-co2">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>CO₂ (% vol)</span>
+                    <span class="sensor-desc">Combustion Efficiency</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-co2">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-co2" name="co2_percent" min="0" max="25" step="0.1" value="14.5" class="sensor-num-input">
+                  <span class="sensor-unit">%</span>
+                </div>
+                <input type="range" id="slider-co2" min="5" max="20" step="0.1" value="14.5" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">13.0 - 16.0% Optimal</span>
+                </div>
+              </div>
+
+              <!-- Hydrocarbons (HC) -->
+              <div class="sensor-field-card" id="card-hc">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>HC (ppm)</span>
+                    <span class="sensor-desc">Unburned Fuel</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-hc">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-hc" name="hc_ppm" min="0" max="2500" step="1" value="65" class="sensor-num-input">
+                  <span class="sensor-unit">ppm</span>
+                </div>
+                <input type="range" id="slider-hc" min="0" max="800" step="5" value="65" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">≤100 Pass</span>
+                  <span class="th-mark th-warn">200 Warn</span>
+                  <span class="th-mark th-fail">>400 Fail</span>
+                </div>
+              </div>
+
+              <!-- Oxygen (O2) -->
+              <div class="sensor-field-card" id="card-o2">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>O₂ (% vol)</span>
+                    <span class="sensor-desc">Excess Air / Lean</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-o2">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-o2" name="o2_percent" min="0" max="20" step="0.05" value="0.8" class="sensor-num-input">
+                  <span class="sensor-unit">%</span>
+                </div>
+                <input type="range" id="slider-o2" min="0" max="6" step="0.05" value="0.8" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">0.5 - 1.5% Nominal</span>
+                </div>
+              </div>
+
+              <!-- Nitrogen Oxides (NOx) -->
+              <div class="sensor-field-card" id="card-nox">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>NOx (ppm)</span>
+                    <span class="sensor-desc">Nitrogen Oxides</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-nox">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-nox" name="nox_ppm" min="0" max="2000" step="1" value="45" class="sensor-num-input">
+                  <span class="sensor-unit">ppm</span>
+                </div>
+                <input type="range" id="slider-nox" min="0" max="600" step="5" value="45" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">≤60 Pass</span>
+                  <span class="th-mark th-warn">150 Warn</span>
+                  <span class="th-mark th-fail">>300 Fail</span>
+                </div>
+              </div>
+
+              <!-- Lambda (λ) Air-Fuel Ratio -->
+              <div class="sensor-field-card" id="card-lambda">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>Lambda (λ)</span>
+                    <span class="sensor-desc">Air-Fuel Ratio</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-lambda">Stoichiometric</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-lambda" name="lambda_value" min="0.5" max="2.0" step="0.005" value="1.010" class="sensor-num-input">
+                  <span class="sensor-unit">λ</span>
+                </div>
+                <input type="range" id="slider-lambda" min="0.85" max="1.15" step="0.005" value="1.010" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-warn">&lt;0.97 Rich</span>
+                  <span class="th-mark th-pass">0.97 - 1.03 Stoic</span>
+                  <span class="th-mark th-warn">&gt;1.03 Lean</span>
+                </div>
+              </div>
+
+              <!-- Smoke Opacity (%) -->
+              <div class="sensor-field-card" id="card-smoke">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>Smoke Opacity</span>
+                    <span class="sensor-desc">Particulate Light Block</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-smoke">Pass</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-smoke" name="smoke_opacity" min="0" max="100" step="0.5" value="4.5" class="sensor-num-input">
+                  <span class="sensor-unit">%</span>
+                </div>
+                <input type="range" id="slider-smoke" min="0" max="80" step="0.5" value="4.5" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">≤10% Clear</span>
+                  <span class="th-mark th-warn">25% Hazy</span>
+                  <span class="th-mark th-fail">>50% Dense</span>
+                </div>
+              </div>
+
+              <!-- Engine Temperature (°C) -->
+              <div class="sensor-field-card" id="card-temp">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>Engine Head Temp</span>
+                    <span class="sensor-desc">Head / Oil Temperature</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-temp">Nominal</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-temp" name="engine_temperature_c" min="20" max="180" step="0.5" value="90.0" class="sensor-num-input">
+                  <span class="sensor-unit">°C</span>
+                </div>
+                <input type="range" id="slider-temp" min="50" max="140" step="0.5" value="90.0" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">80 - 95°C Nominal</span>
+                  <span class="th-mark th-fail">&gt;110°C Overheat</span>
+                </div>
+              </div>
+
+              <!-- Engine RPM -->
+              <div class="sensor-field-card" id="card-rpm">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>Engine RPM</span>
+                    <span class="sensor-desc">Test Operating Speed</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-rpm">Idle</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-rpm" name="engine_rpm" min="600" max="14000" step="50" value="1400" class="sensor-num-input">
+                  <span class="sensor-unit">RPM</span>
+                </div>
+                <input type="range" id="slider-rpm" min="800" max="6000" step="50" value="1400" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">1200 - 1500 Idle</span>
+                  <span class="th-mark th-pass">3000 - 4500 Mid-Band</span>
+                </div>
+              </div>
+
+              <!-- Fuel Consumption (L/100km) -->
+              <div class="sensor-field-card" id="card-fuel">
+                <div class="sensor-field-header">
+                  <div class="sensor-name">
+                    <span>Fuel Consumption</span>
+                    <span class="sensor-desc">Estimated Rate</span>
+                  </div>
+                  <span class="sensor-status-badge badge-pass" id="status-badge-fuel">Good</span>
+                </div>
+                <div class="sensor-control-row">
+                  <input type="number" id="sensor-fuel" name="fuel_consumption" min="0.5" max="15.0" step="0.1" value="2.8" class="sensor-num-input">
+                  <span class="sensor-unit">L/100km</span>
+                </div>
+                <input type="range" id="slider-fuel" min="1.0" max="8.0" step="0.1" value="2.8" class="range-slider">
+                <div class="sensor-threshold-bar">
+                  <span class="th-mark th-pass">~2.2 - 3.5 L/100km (~40-45 km/L)</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Card 3: Model Execution & Predict CTA -->
+          <div class="panel card-action-panel">
+            <div class="action-options">
+              <div class="form-group model-select-group">
+                <label for="model-selection">Select Prediction Model</label>
+                <select id="model-selection" name="selected_model">
+                  <option value="ensemble" selected>⚡ Ensemble: CatBoost + RF + LightGBM + MultiOutput (Recommended)</option>
+                  <option value="catboost">CatBoost Regressor (Engine Health Specialist - R² 0.868)</option>
+                  <option value="random_forest">Random Forest Classifier (Euro 6 Compliance - 99.3% Acc)</option>
+                  <option value="lightgbm">LightGBM Regressor (Remaining Useful Life RUL)</option>
+                </select>
+              </div>
+
+              <div class="options-checkboxes">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-forecast" checked>
+                  <span class="checkbox-box"></span>
+                  <span>1-Year Degradation Forecast</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="opt-xai" checked>
+                  <span class="checkbox-box"></span>
+                  <span>XAI Sensor Impact Attribution</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="button" id="btn-predict" class="btn-primary btn-predict-cta">
+              <span class="btn-spinner" id="predict-spinner"></span>
+              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <span id="btn-predict-label">Run AI Engine Health & Emission Prediction</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- RIGHT COLUMN: Real-Time Diagnostic Results Dashboard -->
+      <div class="results-column">
+        
+        <!-- Empty State Prompt (shown before first prediction) -->
+        <div id="results-empty-state" class="panel empty-state-panel">
+          <div class="empty-state-bike-art">
+            <svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="1.8" class="bike-svg">
+              <!-- Motorbike silhouette outline -->
+              <circle cx="20" cy="42" r="14" stroke="currentColor" stroke-width="2.5"/>
+              <circle cx="80" cy="42" r="14" stroke="currentColor" stroke-width="2.5"/>
+              <circle cx="20" cy="42" r="6" stroke="currentColor"/>
+              <circle cx="80" cy="42" r="6" stroke="currentColor"/>
+              <path d="M20 42 L38 42 L48 26 L30 26 Z" stroke="currentColor"/>
+              <path d="M38 42 L52 26 L72 26 L80 42" stroke="currentColor"/>
+              <path d="M72 26 L68 14 L60 12" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M48 26 L44 18 L32 18" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M40 34 L54 34 L48 42 Z" stroke="currentColor" fill="rgba(127,0,255,0.2)"/>
+              <!-- Exhaust pipe with smoke puff -->
+              <path d="M48 38 L30 46 L10 46" stroke="currentColor" stroke-width="2"/>
+              <circle cx="6" cy="45" r="2" fill="currentColor" opacity="0.6"/>
+              <circle cx="2" cy="43" r="3" fill="currentColor" opacity="0.3"/>
+            </svg>
+          </div>
+          <h3 class="empty-title">Ready for Motorbike Diagnostics</h3>
+          <p class="empty-desc">
+            Manually enter the motorbike specs and tailpipe exhaust readings on the left, or select a sample preset above, then click <strong>"Run AI Engine Health & Emission Prediction"</strong> to analyze.
+          </p>
+          <div class="empty-features">
+            <div class="feat-pill">🎯 CatBoost 0–100 Health Score</div>
+            <div class="feat-pill">🛡️ Euro 6 Pass/Fail Compliance</div>
+            <div class="feat-pill">🔍 8-Fault Multi-Label Detector</div>
+            <div class="feat-pill">⏳ LightGBM Remaining Useful Life</div>
+            <div class="feat-pill">📈 1-Year Predictive Forecast</div>
+            <div class="feat-pill">💡 Explainable AI Feature Attribution</div>
+          </div>
+        </div>
+
+        <!-- Populated Results Dashboard (revealed upon prediction) -->
+        <div id="results-dashboard" class="results-dashboard hidden">
+          
+          <!-- Result Summary Header Card -->
+          <div class="panel result-header-card">
+            <div class="result-header-left">
+              <div class="bike-identity">
+                <span class="bike-icon">🏍️</span>
+                <div>
+                  <h2 id="res-bike-name" class="bike-title">Honda CB Hornet 160R</h2>
+                  <div class="bike-meta-line">
+                    <span id="res-bike-specs">2022 • 160 CC • 25,000 KM</span>
+                    <span class="bullet">•</span>
+                    <span id="res-bike-plate" class="plate-badge">BBD-4892</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="result-header-right">
+              <div id="res-model-used-badge" class="model-used-tag">CatBoost + RF + LightGBM</div>
+              <div id="res-timestamp" class="timestamp-tag">Analyzed just now</div>
+            </div>
+          </div>
+
+          <!-- Gauges Grid: Health Gauge + Compliance + RUL -->
+          <div class="gauges-grid">
+            
+            <!-- Health Score Radial Gauge Card -->
+            <div class="panel gauge-card">
+              <div class="gauge-card-title">Engine Health Score</div>
+              <div class="radial-gauge-container">
+                <svg class="radial-gauge-svg" viewBox="0 0 200 120">
+                  <!-- Background Track -->
+                  <path class="gauge-track" d="M 25 105 A 75 75 0 0 1 175 105" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="16" stroke-linecap="round"/>
+                  <!-- Animated Progress Value Arc -->
+                  <path id="gauge-fill-arc" class="gauge-value" d="M 25 105 A 75 75 0 0 1 175 105" fill="none" stroke="url(#gauge-gradient)" stroke-width="16" stroke-linecap="round" stroke-dasharray="235.6" stroke-dashoffset="235.6"/>
+                  
+                  <defs>
+                    <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#EF4444" />
+                      <stop offset="40%" stop-color="#F59E0B" />
+                      <stop offset="70%" stop-color="#10B981" />
+                      <stop offset="100%" stop-color="#00F2FE" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="gauge-center-content">
+                  <div id="res-health-score" class="gauge-number">--</div>
+                  <div class="gauge-max">/ 100</div>
+                </div>
+              </div>
+
+              <div class="gauge-footer">
+                <span id="res-health-class" class="classification-badge class-good">Optimal</span>
+                <span id="res-health-conf" class="confidence-tag">92% Confidence</span>
+              </div>
+            </div>
+
+            <!-- Compliance & RUL Split Column -->
+            <div class="sub-gauges-col">
+              
+              <!-- Euro Emission Compliance Card -->
+              <div class="panel status-summary-card" id="card-compliance-summary">
+                <div class="sub-card-header">
+                  <span class="sub-card-label">Emission Compliance</span>
+                  <span id="res-compliance-badge" class="compliance-badge badge-pass">PASS</span>
+                </div>
+                <div class="compliance-details-mini" id="compliance-mini-bars">
+                  <!-- Filled dynamically with gas status bars -->
+                </div>
+                <div class="compliance-footnote" id="res-compliance-footnote">Meets Euro 6 tailpipe standards</div>
+              </div>
+
+              <!-- Remaining Useful Life (RUL) Card -->
+              <div class="panel status-summary-card" id="card-rul-summary">
+                <div class="sub-card-header">
+                  <span class="sub-card-label">Remaining Useful Life (RUL)</span>
+                  <span class="rul-icon">⏳</span>
+                </div>
+                <div class="rul-main-stat">
+                  <span id="res-rul-months" class="rul-big-val">--</span>
+                  <span class="rul-unit">Months</span>
+                </div>
+                <div class="rul-sub-stats">
+                  <div>
+                    <span class="rul-sub-label">Est. Distance:</span>
+                    <strong id="res-rul-km">-- KM</strong>
+                  </div>
+                  <div>
+                    <span class="rul-sub-label">Next Service:</span>
+                    <strong id="res-rul-service">in -- KM</strong>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Key Diagnostics Metrics Bar -->
+          <div class="metrics-strip">
+            <div class="metric-item">
+              <span class="metric-label">Operational Risk</span>
+              <span id="res-risk-level" class="metric-val risk-low">Low</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Repair Urgency</span>
+              <span id="res-urgency-level" class="metric-val">Normal</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Est. Repair Cost</span>
+              <span id="res-repair-cost" class="metric-val mono">$0 – $0</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Fuel Efficiency</span>
+              <span id="res-fuel-rating" class="metric-val mono">-- / 100</span>
+            </div>
+          </div>
+
+          <!-- Detected Faults Diagnostic Center -->
+          <div class="panel faults-panel">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                  <h3 class="panel-title">Mechanical Faults & Anomalies</h3>
+                  <p class="panel-subtitle">Multi-label classification across catalytic, sensor, mixture, ignition & cooling systems</p>
+                </div>
+              </div>
+              <span id="res-fault-count-badge" class="count-badge count-zero">0 Faults Detected</span>
+            </div>
+
+            <div id="res-faults-container" class="faults-list">
+              <!-- Dynamically populated with fault cards or clean engine card -->
+            </div>
+          </div>
+
+          <!-- Degradation Forecast Chart & XAI Panel -->
+          <div class="panel-grid-2">
+            
+            <!-- 1-Year Forecast Timeline -->
+            <div class="panel forecast-panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">1-Year Degradation Forecast</h3>
+                  <p class="panel-subtitle">Projected engine health & risk evolution</p>
+                </div>
+              </div>
+              <div class="forecast-chart-container" id="forecast-chart-container">
+                <svg class="forecast-svg" id="forecast-svg" viewBox="0 0 380 160">
+                  <!-- Injected by JavaScript -->
+                </svg>
+              </div>
+              <div class="forecast-timeline-labels">
+                <span>Current</span>
+                <span>30 Days</span>
+                <span>90 Days</span>
+                <span>180 Days</span>
+                <span>1 Year</span>
+              </div>
+            </div>
+
+            <!-- Explainable AI (XAI) Feature Importance -->
+            <div class="panel xai-panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">Sensor Influence (XAI)</h3>
+                  <p class="panel-subtitle">Key factors driving this prediction</p>
+                </div>
+                <span class="xai-chip">CatBoost SHAP</span>
+              </div>
+              <div id="xai-bars-container" class="xai-bars">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Actionable Maintenance Checklist -->
+          <div class="panel maintenance-panel">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+                <div>
+                  <h3 class="panel-title">Actionable Recommendations</h3>
+                  <p class="panel-subtitle">Prioritized servicing schedule for this motorbike</p>
+                </div>
+              </div>
+            </div>
+            <div id="res-recommendations-list" class="recommendations-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Actions & Export Toolbar -->
+          <div class="panel export-toolbar">
+            <div class="export-text">
+              <strong>Export & Diagnostic Actions</strong>
+              <span>Save or print a complete inspection summary</span>
+            </div>
+            <div class="export-buttons">
+              <button type="button" id="btn-print-report" class="btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print / Save PDF Report
+              </button>
+              <button type="button" id="btn-save-history" class="btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save to History
+              </button>
+              <button type="button" id="btn-copy-json" class="btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy JSON
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Slide-Over History Drawer -->
+  <div id="history-drawer" class="drawer-overlay hidden">
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3>Saved Motorbike Tests</h3>
+        </div>
+        <button id="btn-close-drawer" class="btn-close">&times;</button>
+      </div>
+      <div class="drawer-body" id="history-list-container">
+        <!-- Injected by JavaScript -->
+      </div>
+      <div class="drawer-footer">
+        <button id="btn-clear-history" class="btn-danger-outline">Clear All History</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Specs & Info Modal -->
+  <div id="info-modal" class="modal-overlay hidden">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>PredictV Model Architecture & Verification</h3>
+        <button id="btn-close-modal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">
+          PredictV deploys an ensemble of 4 specialised machine learning algorithms trained exclusively on petrol motorbike datasets:
+        </p>
+
+        <div class="modal-specs-grid">
+          <div class="spec-card">
+            <div class="spec-card-title">1. Health Scorer</div>
+            <div class="spec-algo">CatBoost Regressor</div>
+            <p>Predicts overall engine health (0–100) using 31 engineered features, sensor interaction terms, and z-scores.</p>
+            <div class="spec-metric">R² Score: <strong>0.868</strong> • MAE: <strong>3.92</strong></div>
+          </div>
+
+          <div class="spec-card">
+            <div class="spec-card-title">2. Emission Classifier</div>
+            <div class="spec-algo">Random Forest Classifier</div>
+            <p>Classifies Euro 6 compliance based on CO, HC, O2, NOx, and Lambda ratios.</p>
+            <div class="spec-metric">Accuracy: <strong>99.31%</strong> • F1: <strong>0.993</strong></div>
+          </div>
+
+          <div class="spec-card">
+            <div class="spec-card-title">3. Fault Detector</div>
+            <div class="spec-algo">MultiOutput Classifier</div>
+            <p>Multi-label diagnosis predicting 8 simultaneous mechanical fault conditions with individual probabilities.</p>
+            <div class="spec-metric">F1 Micro: <strong>0.966</strong> • Accuracy: <strong>98.12%</strong></div>
+          </div>
+
+          <div class="spec-card">
+            <div class="spec-card-title">4. RUL Predictor</div>
+            <div class="spec-algo">LightGBM Regressor</div>
+            <p>Estimates Remaining Useful Life in operating months and kilometers before major maintenance.</p>
+            <div class="spec-metric">R² Score: <strong>0.856</strong> • MAE: <strong>5.07 mo</strong></div>
+          </div>
+        </div>
+
+        <div class="modal-limits-table">
+          <h4>Regulatory Reference Standards (Petrol Motorbikes):</h4>
+          <table>
+            <thead>
+              <tr><th>Pollutant</th><th>Pass Limit</th><th>Warning Limit</th><th>Critical Fail</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>CO (Carbon Monoxide)</td><td>≤ 0.50%</td><td>0.50% - 1.00%</td><td>&gt; 2.00%</td></tr>
+              <tr><td>HC (Hydrocarbons)</td><td>≤ 100 ppm</td><td>100 - 200 ppm</td><td>&gt; 400 ppm</td></tr>
+              <tr><td>NOx (Nitrogen Oxides)</td><td>≤ 60 ppm</td><td>60 - 150 ppm</td><td>&gt; 300 ppm</td></tr>
+              <tr><td>Lambda (λ Air-Fuel)</td><td>0.97 - 1.03</td><td>0.95 - 1.05</td><td>&lt; 0.90 or &gt; 1.10</td></tr>
+              <tr><td>Smoke Opacity</td><td>≤ 10.0%</td><td>10.0% - 25.0%</td><td>&gt; 50.0%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Print Only Header -->
+  <div class="print-header hidden">
+    <h1>PredictV Petrol Motorbike Diagnostics Inspection Report</h1>
+    <p>Official diagnostic output generated from ML models</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

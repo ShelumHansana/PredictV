@@ -28,6 +28,8 @@ from app.schemas.schemas import (
     EmissionTestCreate,
     EmissionTestResponse,
     FileUploadResponse,
+    ManualBikePredictionRequest,
+    ManualBikePredictionResponse,
 )
 from app.utils.helpers import generate_uuid, utc_now
 
@@ -214,6 +216,99 @@ async def analyze_emission(
         maintenance_schedule=ml_result.get("maintenance_schedule", []),
         overall_confidence=ml_result.get("overall_confidence", 0.7),
         model_version="1.0.0",
+        analyzed_at=utc_now(),
+    )
+
+
+@router.post("/predict-direct", response_model=ManualBikePredictionResponse)
+@router.post("/predict-manual", response_model=ManualBikePredictionResponse)
+async def predict_direct(data: ManualBikePredictionRequest):
+    """
+    Run direct ML engine health & emission prediction on manual motorbike data.
+    Does not require user authentication or pre-existing database vehicle records.
+    """
+    # Enforce petrol fuel type
+    if data.fuel_type and data.fuel_type.lower() != "petrol":
+        raise HTTPException(
+            status_code=400,
+            detail=f"PredictV only supports petrol motorbikes. Received fuel_type='{data.fuel_type}'.",
+        )
+
+    pipeline = get_pipeline()
+
+    emission_data = {
+        "co_percent": data.co_percent,
+        "co2_percent": data.co2_percent,
+        "hc_ppm": data.hc_ppm,
+        "o2_percent": data.o2_percent,
+        "nox_ppm": data.nox_ppm,
+        "lambda_value": data.lambda_value,
+        "smoke_opacity": data.smoke_opacity,
+        "engine_temperature_C": data.engine_temperature_c,
+        "engine_rpm": data.engine_rpm,
+        "fuel_consumption": data.fuel_consumption,
+    }
+
+    vehicle_data = {
+        "brand": data.brand,
+        "model": data.model,
+        "year": data.year,
+        "engine_cc": data.engine_cc,
+        "mileage": data.mileage_km,
+        "vehicle_age": max(0, 2026 - data.year),
+        "fuel_type": data.fuel_type,
+        "oil_condition": data.oil_condition,
+        "catalytic_converter": data.catalytic_converter,
+        "transmission": data.transmission,
+    }
+
+    ml_result = pipeline.predict(emission_data, vehicle_data)
+
+    rem_km = ml_result.get("remaining_life_km")
+    rem_months = round(rem_km / 500, 1) if rem_km else None
+
+    return ManualBikePredictionResponse(
+        prediction_id=generate_uuid(),
+        bike_summary={
+            "brand": data.brand,
+            "model": data.model,
+            "year": data.year,
+            "engine_cc": data.engine_cc,
+            "mileage_km": data.mileage_km,
+            "fuel_type": data.fuel_type,
+            "oil_condition": data.oil_condition,
+            "catalytic_converter": data.catalytic_converter,
+            "transmission": data.transmission,
+            "registration_number": data.registration_number,
+        },
+        health_score=ml_result.get("health_score", 70.0),
+        health_classification=ml_result.get("health_classification", "Moderate"),
+        health_confidence=ml_result.get("confidence", 0.85),
+        emission_compliance=ml_result.get("emission_compliance", "Warning"),
+        emission_details=ml_result.get("emission_details", {}),
+        detected_faults=ml_result.get("detected_faults", []),
+        fault_count=ml_result.get("fault_count", 0),
+        primary_fault=ml_result.get("primary_fault"),
+        primary_fault_probability=ml_result.get("primary_fault_probability"),
+        remaining_life_km=rem_km,
+        remaining_life_months=rem_months,
+        km_to_maintenance=ml_result.get("km_to_maintenance"),
+        km_to_major_repair=ml_result.get("km_to_major_repair"),
+        breakdown_probability=ml_result.get("breakdown_probability"),
+        forecasts=ml_result.get("forecasts", []),
+        estimated_repair_cost_min=ml_result.get("estimated_repair_cost_min"),
+        estimated_repair_cost_max=ml_result.get("estimated_repair_cost_max"),
+        risk_level=ml_result.get("risk_level", "Medium"),
+        urgency_level=ml_result.get("urgency_level", "Medium"),
+        fuel_efficiency_rating=ml_result.get("fuel_efficiency_rating"),
+        environmental_impact_score=ml_result.get("environmental_impact_score"),
+        emission_rating=ml_result.get("emission_rating"),
+        feature_importance=ml_result.get("feature_importance"),
+        explanation_text=ml_result.get("explanation_text"),
+        recommendations=ml_result.get("recommendations", []),
+        maintenance_schedule=ml_result.get("maintenance_schedule", []),
+        overall_confidence=ml_result.get("overall_confidence", 0.85),
+        model_used=ml_result.get("model_used", "CatBoost + Random Forest + MultiOutput + LightGBM"),
         analyzed_at=utc_now(),
     )
 

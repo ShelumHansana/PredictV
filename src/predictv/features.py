@@ -31,6 +31,26 @@ CONDITION_COLS = [
 ]
 
 
+DEFAULT_EMISSION_MEANS = {
+    "CO_percent": 2.2333,
+    "CO2_percent": 12.0174,
+    "HC_ppm": 307.9431,
+    "O2_percent": 4.0288,
+    "NOx_ppm": 610.6435,
+    "Lambda": 0.9999,
+    "Smoke_Opacity_percent": 45.3068,
+}
+DEFAULT_EMISSION_STDS = {
+    "CO_percent": 1.2890,
+    "CO2_percent": 2.3046,
+    "HC_ppm": 167.6147,
+    "O2_percent": 2.3013,
+    "NOx_ppm": 340.5147,
+    "Lambda": 0.0579,
+    "Smoke_Opacity_percent": 25.8746,
+}
+
+
 class FeatureEngineer:
     """
     Builds derived features from raw petrol motorbike emission and vehicle data.
@@ -47,9 +67,17 @@ class FeatureEngineer:
 
     def __init__(self) -> None:
         self.feature_names_: Optional[List[str]] = None
+        self.means_: Dict[str, float] = dict(DEFAULT_EMISSION_MEANS)
+        self.stds_: Dict[str, float] = dict(DEFAULT_EMISSION_STDS)
 
     def fit(self, df: pd.DataFrame) -> "FeatureEngineer":
-        """Fit the feature engineer (learn feature names)."""
+        """Fit the feature engineer (learn feature names and statistics)."""
+        for col in EMISSION_COLS:
+            if col in df.columns:
+                std = df[col].std()
+                if std > 0:
+                    self.means_[col] = float(df[col].mean())
+                    self.stds_[col] = float(std)
         transformed = self._transform(df)
         self.feature_names_ = list(transformed.columns)
         return self
@@ -106,11 +134,17 @@ class FeatureEngineer:
         emission_cols_present = [c for c in EMISSION_COLS if c in out.columns]
         if emission_cols_present:
             # Z-score-like severity
+            means_dict = getattr(self, "means_", DEFAULT_EMISSION_MEANS)
+            stds_dict = getattr(self, "stds_", DEFAULT_EMISSION_STDS)
             for col in emission_cols_present:
-                mean_val = out[col].mean()
-                std_val = out[col].std()
-                if std_val > 0:
-                    out[f"{col}_zscore"] = (out[col] - mean_val) / std_val
+                if len(out) > 1 and out[col].std() > 0:
+                    mean_val = float(out[col].mean())
+                    std_val = float(out[col].std())
+                else:
+                    mean_val = float(means_dict.get(col, DEFAULT_EMISSION_MEANS.get(col, 0.0)))
+                    std_val = float(stds_dict.get(col, DEFAULT_EMISSION_STDS.get(col, 1.0)))
+                std_val = std_val if std_val > 0 else 1.0
+                out[f"{col}_zscore"] = (out[col] - mean_val) / std_val
 
         # ── Fuel efficiency per cc ───────────────────
         if "Fuel_Consumption_L100km" in out.columns and "engine_cc" in out.columns:

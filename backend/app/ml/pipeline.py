@@ -110,10 +110,23 @@ class PredictionPipeline:
     def __init__(self) -> None:
         self._models_loaded = False
         self._health_model = None
+        self._emission_model = None
         self._fault_model = None
         self._rul_model = None
-        self._forecast_model = None
-        self._model_dir = Path(__file__).parent / "models"
+        self._forecaster = None
+        self._preprocessor = None
+        self._feature_engineer = None
+        self._feature_names = None
+        
+        # Search for model directories
+        candidates = [
+            Path(__file__).resolve().parents[4] / "ml_models",
+            Path(__file__).resolve().parents[3] / "ml_models",
+            Path(__file__).resolve().parents[2] / "ml_models",
+            Path(__file__).parent.parent.parent / "ml_models",
+            Path(__file__).parent / "models",
+        ]
+        self._model_dir = next((c for c in candidates if (c / "health_scorer.pkl").exists()), candidates[0])
 
     @property
     def is_loaded(self) -> bool:
@@ -125,20 +138,65 @@ class PredictionPipeline:
     def load_models(self) -> None:
         """Load trained ML models from disk, if available."""
         try:
-            # Attempt to load serialised models
-            health_path = self._model_dir / "health_model.pkl"
-            if health_path.exists():
-                import pickle
+            import pickle
+            from predictv.features import FeatureEngineer
 
+            # 1. Health Scorer (CatBoost)
+            health_path = self._model_dir / "health_scorer.pkl"
+            if health_path.exists():
                 with open(health_path, "rb") as f:
                     self._health_model = pickle.load(f)
-                logger.info("Loaded health model from %s", health_path)
+                logger.info("Loaded CatBoost health model from %s", health_path)
 
-            self._models_loaded = True
-            logger.info("Pipeline ready (rule-based fallback active for missing models)")
+            # 2. Emission Classifier (RandomForest)
+            emission_path = self._model_dir / "emission_classifier.pkl"
+            if emission_path.exists():
+                with open(emission_path, "rb") as f:
+                    self._emission_model = pickle.load(f)
+                logger.info("Loaded emission classifier from %s", emission_path)
+
+            # 3. Fault Detector (MultiOutputClassifier)
+            fault_path = self._model_dir / "fault_detector.pkl"
+            if fault_path.exists():
+                with open(fault_path, "rb") as f:
+                    self._fault_model = pickle.load(f)
+                logger.info("Loaded fault detector from %s", fault_path)
+
+            # 4. RUL Predictor (LightGBM)
+            rul_path = self._model_dir / "rul_predictor.pkl"
+            if rul_path.exists():
+                with open(rul_path, "rb") as f:
+                    self._rul_model = pickle.load(f)
+                logger.info("Loaded RUL predictor from %s", rul_path)
+
+            # 5. Scaler / Preprocessor
+            preprocessor_path = self._model_dir / "preprocessor.pkl"
+            if preprocessor_path.exists():
+                with open(preprocessor_path, "rb") as f:
+                    self._preprocessor = pickle.load(f)
+
+            # 6. Feature Engineer
+            fe_path = self._model_dir / "feature_engineer.pkl"
+            if fe_path.exists():
+                try:
+                    with open(fe_path, "rb") as f:
+                        self._feature_engineer = pickle.load(f)
+                except Exception:
+                    self._feature_engineer = FeatureEngineer()
+            else:
+                self._feature_engineer = FeatureEngineer()
+
+            # 7. Feature Names
+            fn_path = self._model_dir / "feature_names.pkl"
+            if fn_path.exists():
+                with open(fn_path, "rb") as f:
+                    self._feature_names = pickle.load(f)
+
+            self._models_loaded = bool(self._health_model is not None)
+            logger.info("Pipeline ready (ML models active: %s)", self._models_loaded)
         except Exception as exc:
             logger.warning("Could not load ML models, using rule-based fallback: %s", exc)
-            self._models_loaded = True  # mark ready anyway — rule-based works fine
+            self._models_loaded = False
 
     # ─── Public API ──────────────────────────────────────────
 
@@ -168,22 +226,262 @@ class PredictionPipeline:
                 f"Received fuel_type='{fuel_type}'."
             )
 
-        # 1. Health score
-        health_score, health_classification, confidence = self._compute_health(
-            emission_data, vehicle_data
-        )
-
-        # 2. Emission compliance
+        # 1. Check Compliance
         compliance, emission_details = self._check_compliance(emission_data)
 
-        # 3. Fault detection
-        faults = self._detect_faults(emission_data, vehicle_data)
+        # 2. Try ML-based prediction if models are loaded
+        ml_used = False
+        health_score = None
+        health_classification = None
+        confidence = 0.85
+        faults = []
+        rul = {}
+        feature_importance = {}
+
+        if self._health_model is not None and self._preprocessor is not None:
+            try:
+                import pandas as pd
+                from predictv.features import FeatureEngineer
+
+                # Normalize engine displacement
+                raw_cc = vehicle_data.get("engine_cc") or vehicle_data.get("engine_capacity", 150)
+                try:
+                    engine_cc = float(raw_cc)
+                    if engine_cc < 10:  # e.g. 0.16L -> 160cc
+                        engine_cc = engine_cc * 1000
+                except (TypeError, ValueError):
+                    engine_cc = 150.0
+
+                # Normalize age
+                raw_year = vehicle_data.get("year", 2022)
+                try:
+                    age = vehicle_data.get("vehicle_age", max(0, 2026 - int(raw_year)))
+                except (TypeError, ValueError):
+                    age = 3
+
+                # Normalize temperatures and sensor readings
+                rpm_val = float(emission_data.get("engine_rpm") or emission_data.get("rpm", 1400))
+                temp_val = float(
+                    emission_data.get("engine_temperature_C")
+                    or emission_data.get("coolant_temp")
+                    or emission_data.get("oil_temp")
+                    or 90.0
+                )
+                co_val = float(emission_data.get("co_percent", 0.35))
+                co2_val = float(emission_data.get("co2_percent", 14.5))
+                hc_val = float(emission_data.get("hc_ppm", 65))
+                o2_val = float(emission_data.get("o2_percent", 0.8))
+                nox_val = float(emission_data.get("nox_ppm", 45))
+                lambda_val = float(emission_data.get("lambda_value", 1.01))
+                smoke_val = float(emission_data.get("smoke_opacity", 5.0))
+                fuel_cons = float(emission_data.get("fuel_consumption", 2.8))
+
+                df_raw = pd.DataFrame([
+                    {
+                        "fuel_type": "Petrol",
+                        "vehicle_age_years": float(age),
+                        "mileage_km": float(vehicle_data.get("mileage", 0)),
+                        "engine_cc": float(engine_cc),
+                        "engine_temperature_C": temp_val,
+                        "rpm": rpm_val,
+                        "CO_percent": co_val,
+                        "CO2_percent": co2_val,
+                        "HC_ppm": hc_val,
+                        "O2_percent": o2_val,
+                        "NOx_ppm": nox_val,
+                        "Lambda": lambda_val,
+                        "Smoke_Opacity_percent": smoke_val,
+                        "Fuel_Consumption_L100km": fuel_cons,
+                        "Oil_Condition": vehicle_data.get("oil_condition", "Good"),
+                        "Catalytic_Converter": vehicle_data.get("catalytic_converter", "Working"),
+                    }
+                ])
+
+                fe = self._feature_engineer or FeatureEngineer()
+                feat = fe.transform(df_raw)
+
+                # Remove potential target columns
+                target_drop = [
+                    "Engine_Health_Score", "Emission_Test", "Remaining_Useful_Life_months",
+                    "fault_catalytic", "fault_o2_sensor", "fault_rich_mixture",
+                    "fault_lean_mixture", "fault_egr", "fault_ignition",
+                    "fault_cooling", "fault_exhaust_leak"
+                ]
+                drop_present = [c for c in target_drop if c in feat.columns]
+                feat = feat.drop(columns=drop_present)
+
+                # Ensure expected features
+                expected_cols = getattr(self._health_model, "feature_names_", None) or self._feature_names
+                if expected_cols:
+                    for col in expected_cols:
+                        if col not in feat.columns:
+                            feat[col] = 0.0
+                    X = feat[expected_cols]
+                else:
+                    X = feat
+
+                X_scaled = self._preprocessor.transform(X)
+                X_scaled_df = pd.DataFrame(X_scaled, columns=expected_cols) if expected_cols else X_scaled
+
+                # A. Predict Health Score (CatBoost)
+                raw_health = float(self._health_model.predict(X_scaled_df)[0])
+                health_score = float(np.clip(raw_health, 5.0, 99.5))
+
+                if health_score >= 85:
+                    health_classification = "Excellent"
+                elif health_score >= 70:
+                    health_classification = "Good"
+                elif health_score >= 50:
+                    health_classification = "Moderate"
+                elif health_score >= 30:
+                    health_classification = "Poor"
+                else:
+                    health_classification = "Critical"
+
+                confidence = 0.88 + min(0.08, health_score / 1200)
+
+                # B. Predict Emission Status (Random Forest)
+                if self._emission_model is not None:
+                    try:
+                        rf_fail = int(self._emission_model.predict(X_scaled_df)[0])
+                        if rf_fail == 1 and compliance == "Pass":
+                            compliance = "Warning"
+                    except Exception:
+                        pass
+
+                # C. Predict Faults (MultiOutputClassifier)
+                fault_labels_meta = [
+                    {
+                        "key": "fault_catalytic",
+                        "fault": "Catalytic Converter Degradation",
+                        "severity": "High",
+                        "cost": 800,
+                        "description": "Catalytic converter efficiency has degraded, elevating tailpipe pollutants.",
+                    },
+                    {
+                        "key": "fault_o2_sensor",
+                        "fault": "Oxygen Sensor Malfunction",
+                        "severity": "Medium",
+                        "cost": 250,
+                        "description": "O₂ sensor readings out of normal stoichiometric range, impacting fuel trim.",
+                    },
+                    {
+                        "key": "fault_rich_mixture",
+                        "fault": "Rich Fuel Mixture",
+                        "severity": "Medium",
+                        "cost": 200,
+                        "description": "Excess fuel injection causing unburned combustion and high CO output.",
+                    },
+                    {
+                        "key": "fault_lean_mixture",
+                        "fault": "Lean Fuel Mixture",
+                        "severity": "Medium",
+                        "cost": 200,
+                        "description": "Excess air relative to fuel causing high combustion chamber temps and NOx.",
+                    },
+                    {
+                        "key": "fault_egr",
+                        "fault": "EGR / Air Suction Failure",
+                        "severity": "High",
+                        "cost": 400,
+                        "description": "Exhaust gas recirculation or secondary air injection failure elevating NOx.",
+                    },
+                    {
+                        "key": "fault_ignition",
+                        "fault": "Ignition System Issue",
+                        "severity": "Medium",
+                        "cost": 350,
+                        "description": "Incomplete combustion or spark plug fouling causing elevated unburnt hydrocarbons.",
+                    },
+                    {
+                        "key": "fault_cooling",
+                        "fault": "Cooling System Degradation",
+                        "severity": "High",
+                        "cost": 500,
+                        "description": "Engine head temperature exceeds safe continuous operating threshold.",
+                    },
+                    {
+                        "key": "fault_exhaust_leak",
+                        "fault": "Exhaust Manifold Leak",
+                        "severity": "Medium",
+                        "cost": 300,
+                        "description": "Ambient air ingress detected along the exhaust pipe prior to catalytic sensor.",
+                    },
+                ]
+
+                if self._fault_model is not None:
+                    try:
+                        preds = self._fault_model.predict(X_scaled_df)[0]
+                        probs = self._fault_model.predict_proba(X_scaled_df)
+                        for idx, meta in enumerate(fault_labels_meta):
+                            p = 0.0
+                            if idx < len(probs) and probs[idx].shape[1] > 1:
+                                p = float(probs[idx][0, 1])
+                            elif idx < len(preds) and preds[idx] == 1:
+                                p = 0.8
+                            if preds[idx] == 1 or p >= 0.40:
+                                faults.append({
+                                    "fault": meta["fault"],
+                                    "probability": round(max(p, 0.65), 3),
+                                    "severity": meta["severity"],
+                                    "estimated_repair_cost": float(meta["cost"]),
+                                    "description": meta["description"],
+                                })
+                    except Exception as err:
+                        logger.warning("Fault model prediction error: %s", err)
+
+                # D. Predict Remaining Useful Life (LightGBM)
+                if self._rul_model is not None:
+                    try:
+                        rul_m = float(self._rul_model.predict(X_scaled_df)[0])
+                        rul_months = max(1.0, round(rul_m, 1))
+                        rem_km = round(rul_months * 500)
+                        rul = {
+                            "remaining_life_km": rem_km,
+                            "km_to_maintenance": max(500, round(min(rem_km * 0.12, 3000))),
+                            "km_to_major_repair": max(1500, round(rem_km * 0.55)),
+                            "breakdown_probability": round(float(np.clip(1.0 - (health_score / 110), 0.05, 0.95)), 3),
+                        }
+                    except Exception as err:
+                        logger.warning("RUL model prediction error: %s", err)
+
+                # E. Feature Importances from CatBoost
+                if hasattr(self._health_model, "get_feature_importance"):
+                    try:
+                        importances = self._health_model.get_feature_importance()
+                        names = getattr(self._health_model, "feature_names_", expected_cols)
+                        if names:
+                            fi_pairs = sorted(zip(names, importances), key=lambda x: x[1], reverse=True)[:8]
+                            total_imp = sum(v for _, v in fi_pairs) or 1.0
+                            feature_importance = {k: round(float(v / total_imp), 3) for k, v in fi_pairs}
+                    except Exception:
+                        pass
+
+                ml_used = True
+            except Exception as e:
+                logger.error("Error during ML prediction execution, using rule-based fallback: %s", e)
+                ml_used = False
+
+        # Fallback to rule-based logic if ML wasn't used or failed
+        if not ml_used or health_score is None:
+            health_score, health_classification, confidence = self._compute_health(
+                emission_data, vehicle_data
+            )
+            faults = self._detect_faults(emission_data, vehicle_data)
+            rul = self._estimate_rul(emission_data, vehicle_data, health_score)
+            feature_importance = self._feature_importance(emission_data)
+
+        # Merge any rule-based fault triggers that were definitely found
+        rule_faults = self._detect_faults(emission_data, vehicle_data)
+        existing_fault_names = {f["fault"] for f in faults}
+        for rf in rule_faults:
+            if rf["fault"] not in existing_fault_names:
+                faults.append(rf)
+
+        faults.sort(key=lambda f: f["probability"], reverse=True)
         fault_count = len(faults)
         primary_fault = faults[0]["fault"] if faults else None
         primary_fault_prob = faults[0]["probability"] if faults else None
-
-        # 4. Remaining useful life
-        rul = self._estimate_rul(emission_data, vehicle_data, health_score)
 
         # 5. Forecasts
         forecasts = self._generate_forecasts(health_score, vehicle_data)
@@ -200,17 +498,18 @@ class PredictionPipeline:
         env_score = self._environmental_score(emission_data)
         emission_rating = self._letter_grade(health_score)
 
-        # 9. Feature importance (rule-based proxy)
-        feature_importance = self._feature_importance(emission_data)
-
-        # 10. Explanation
+        # 9. Explanation
+        if health_classification is None:
+            health_classification = "Unknown"
         explanation = self._build_explanation(
             health_score, health_classification, compliance, faults, rul
         )
 
-        # 11. Recommendations
+        # 10. Recommendations
         recommendations = self._build_recommendations(faults, compliance, rul, emission_data)
         maintenance_schedule = self._build_maintenance_schedule(faults, rul, vehicle_data)
+
+        model_label = "CatBoost + Random Forest + MultiOutput + LightGBM" if ml_used else "Rule-based Engine"
 
         return {
             "health_score": round(health_score, 1),
@@ -240,7 +539,7 @@ class PredictionPipeline:
             "recommendations": recommendations,
             "maintenance_schedule": maintenance_schedule,
             "overall_confidence": round(confidence, 3),
-            "model_used": "rule_based",
+            "model_used": model_label,
         }
 
     # ─── Internal helpers ────────────────────────────────────
@@ -517,42 +816,75 @@ class PredictionPipeline:
         ed: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         recs: List[Dict[str, Any]] = []
+
+        # 1. Regulatory & Emission Compliance Action
         if compliance == "Fail":
             recs.append(
                 {
                     "priority": "High",
-                    "category": "Compliance",
+                    "category": "Emission Compliance",
+                    "title": "Mandatory Emission Retest Required",
                     "action": "Schedule immediate emission retest after repairs",
+                    "description": "Tailpipe emissions fail legal Euro limits. Correct fuel mixture or catalytic components before operating on public roads.",
                     "estimated_cost": 50,
                 }
             )
-        for fault in faults[:3]:
-            recs.append(
-                {
-                    "priority": fault["severity"],
-                    "category": "Repair",
-                    "action": f"Inspect and repair: {fault['fault']}",
-                    "estimated_cost": fault["estimated_repair_cost"],
-                }
-            )
-        if rul.get("km_to_maintenance", 99999) < 3000:
+        elif compliance == "Warning":
             recs.append(
                 {
                     "priority": "Medium",
-                    "category": "Maintenance",
-                    "action": "Schedule routine maintenance soon",
-                    "estimated_cost": 150,
+                    "category": "Emission Compliance",
+                    "title": "Borderline Exhaust Emissions",
+                    "action": "Inspect exhaust sensors before failure occurs",
+                    "description": "Exhaust gases are approaching maximum legal thresholds. Early servicing prevents a failed inspection.",
+                    "estimated_cost": 40,
                 }
             )
+
+        # 2. Mechanical Fault Repairs
+        for fault in faults[:3]:
+            f_name = fault.get("fault", "Mechanical Anomaly")
+            f_sev = fault.get("severity", "Medium")
+            f_cost = fault.get("estimated_repair_cost", 150)
+            f_desc = fault.get("description", f"Inspect, clean or replace components associated with {f_name}.")
+            recs.append(
+                {
+                    "priority": f_sev,
+                    "category": "Mechanical Repair",
+                    "title": f"Service: {f_name}",
+                    "action": f"Inspect and repair: {f_name}",
+                    "description": f_desc,
+                    "estimated_cost": f_cost,
+                }
+            )
+
+        # 3. Preventive Maintenance (RUL & Kilometers)
+        km_to_maint = rul.get("km_to_maintenance", 99999)
+        if km_to_maint < 3000:
+            recs.append(
+                {
+                    "priority": "Medium",
+                    "category": "Routine Service",
+                    "title": "Scheduled Service Interval Due",
+                    "action": f"Service due in approximately {km_to_maint:,} km",
+                    "description": "Replace 10W-40 4T motorcycle engine oil, clean intake air filter, and inspect spark plug electrode.",
+                    "estimated_cost": 120,
+                }
+            )
+
+        # 4. Default if vehicle is pristine
         if not recs:
             recs.append(
                 {
                     "priority": "Low",
-                    "category": "General",
+                    "category": "Routine Care",
+                    "title": "Optimal Condition Routine Care",
                     "action": "Continue regular maintenance schedule",
+                    "description": "All emission parameters and engine sensors are operating within nominal manufacturer tolerances.",
                     "estimated_cost": 0,
                 }
             )
+
         return recs
 
     def _build_maintenance_schedule(

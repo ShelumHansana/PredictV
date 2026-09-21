@@ -295,6 +295,77 @@ class AnalysisResponse(BaseModel):
     analyzed_at: datetime
 
 
+class ManualBikePredictionRequest(BaseModel):
+    """Direct manual motorbike inputs and exhaust sensor measurements."""
+
+    # Motorbike Specs
+    brand: str = Field(default="Honda", examples=["Honda"])
+    model: str = Field(default="CB Hornet 160R", examples=["CB Hornet 160R"])
+    year: int = Field(default=2022, ge=1980, le=2030, examples=[2022])
+    engine_cc: float = Field(default=160.0, ge=20, le=2500, examples=[160.0])
+    mileage_km: float = Field(default=25000.0, ge=0, examples=[25000.0])
+    fuel_type: str = Field(default="petrol", examples=["petrol"])
+    oil_condition: str = Field(default="Good", examples=["Good"])
+    catalytic_converter: str = Field(default="Working", examples=["Working"])
+    transmission: Optional[str] = Field(default="Manual", examples=["Manual"])
+    registration_number: Optional[str] = Field(default=None, examples=["ABC-1234"])
+
+    # Exhaust Emission & Operational Measurements
+    co_percent: float = Field(default=0.35, ge=0, le=30.0, examples=[0.35])
+    co2_percent: float = Field(default=14.5, ge=0, le=30.0, examples=[14.5])
+    hc_ppm: float = Field(default=65.0, ge=0, le=20000.0, examples=[65.0])
+    o2_percent: float = Field(default=0.8, ge=0, le=30.0, examples=[0.8])
+    nox_ppm: float = Field(default=45.0, ge=0, le=10000.0, examples=[45.0])
+    lambda_value: float = Field(default=1.01, ge=0.4, le=2.5, examples=[1.01])
+    smoke_opacity: float = Field(default=5.0, ge=0, le=100.0, examples=[5.0])
+    engine_temperature_c: float = Field(default=90.0, ge=0, le=250.0, examples=[90.0])
+    engine_rpm: float = Field(default=1400.0, ge=300, le=18000.0, examples=[1400.0])
+    fuel_consumption: float = Field(default=2.8, ge=0, le=50.0, examples=[2.8])
+
+    # Prediction Options
+    selected_model: Optional[str] = Field(default="ensemble", examples=["ensemble"])
+    include_forecasts: bool = True
+    include_explanations: bool = True
+
+
+class ManualBikePredictionResponse(BaseModel):
+    """Complete diagnostic result for manual bike prediction."""
+
+    model_config = {"protected_namespaces": ()}
+
+    prediction_id: str
+    bike_summary: dict[str, Any]
+    health_score: float
+    health_classification: str
+    health_confidence: float
+    emission_compliance: str
+    emission_details: dict[str, Any]
+    detected_faults: list[FaultPrediction]
+    fault_count: int
+    primary_fault: Optional[str] = None
+    primary_fault_probability: Optional[float] = None
+    remaining_life_km: Optional[float] = None
+    remaining_life_months: Optional[float] = None
+    km_to_maintenance: Optional[float] = None
+    km_to_major_repair: Optional[float] = None
+    breakdown_probability: Optional[float] = None
+    forecasts: list[ForecastPoint]
+    estimated_repair_cost_min: Optional[float] = None
+    estimated_repair_cost_max: Optional[float] = None
+    risk_level: str
+    urgency_level: str
+    fuel_efficiency_rating: Optional[float] = None
+    environmental_impact_score: Optional[float] = None
+    emission_rating: Optional[str] = None
+    feature_importance: Optional[dict[str, float]] = None
+    explanation_text: Optional[str] = None
+    recommendations: list[dict[str, Any]]
+    maintenance_schedule: list[dict[str, Any]]
+    overall_confidence: float
+    model_used: str
+    analyzed_at: datetime
+
+
 # ══════════════════════════════════════════════
 # Report Schemas
 # ══════════════════════════════════════════════
