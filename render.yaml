@@ -1,0 +1,28 @@
+# Render Blueprint — PredictV Deployment
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: predictv
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./predictv.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: MODEL_DIR
+        value: ./ml_models
+      - key: SYNTHETIC_DATA_DIR
+        value: ./data
+      - key: REPORT_DIR
+        value: ./reports
+      - key: PYTHONUNBUFFERED
+        value: "1"

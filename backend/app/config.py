@@ -24,7 +24,10 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        origins = self.CORS_ORIGINS.strip()
+        if origins == "*":
+            return ["*"]
+        return [origin.strip() for origin in origins.split(",")]
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./predictv.db"
