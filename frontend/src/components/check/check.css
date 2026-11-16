@@ -1,0 +1,48 @@
+.check { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+.check__aside { display: none; }
+@media (min-width: 1040px) {
+  .check { grid-template-columns: minmax(0, 680px) minmax(0, 1fr); }
+  .check__aside { display: block; }
+  .check__aside .figure { position: sticky; top: 96px; height: min(440px, 60vh); }
+}
+.check__title { margin-bottom: 18px; }
+.check__nav { display: flex; gap: 10px; margin-top: 20px; }
+
+.service { padding: 16px 0; border-top: 1px solid var(--line); }
+.service:first-of-type { border-top: 0; padding-top: 0; }
+.service:last-of-type { padding-bottom: 0; }
+.service__name { display: block; font-weight: 600; margin-bottom: 8px; }
+
+.group + .group { margin-top: 22px; }
+.group__title { margin-bottom: 8px; }
+.tick { display: flex; gap: 12px; align-items: flex-start; min-height: 52px; padding: 13px 14px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--line-strong); border-left-width: 4px; border-radius: var(--radius-sm); background: transparent; transition: background 0.12s, border-color 0.12s; }
+.tick:hover { background: var(--sunken); }
+.tick input { appearance: none; -webkit-appearance: none; flex: none; width: 22px; height: 22px; margin: 1px 0 0; border: 2px solid var(--ink-3); border-radius: 3px; display: grid; place-content: center; cursor: pointer; }
+.tick input:checked { background: var(--ink); border-color: var(--ink); }
+.tick input:checked::after { content: ""; width: 6px; height: 11px; border: solid var(--bg); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translateY(-1px); }
+.tick:has(input:checked) { border-color: var(--ink); border-left-color: var(--accent); background: var(--accent-soft); }
+.tick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tick input:focus-visible { outline: none; }
+
+.more { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.more summary { cursor: pointer; font-weight: 600; color: var(--ink-2); min-height: 32px; }
+.more .grid-2 { margin-top: 12px; }
+
+/* Reference-inspired two-column diagnostic wizard */
+@media (min-width:1040px) {
+  .check { grid-template-columns:minmax(0,1.7fr) minmax(360px,1fr); gap:32px; }
+  .check__aside .figure { top:98px; height:min(568px,75vh); }
+}
+@media (min-width:820px) and (max-width:1039px) {
+  .check { grid-template-columns:minmax(0,1.3fr) minmax(290px,1fr); gap:22px; }
+  .check__aside { display:block; }
+  .check__aside .figure { position:sticky; top:96px; min-height:405px; }
+}
+@media (max-width:819px) {
+  .check__aside { display:block; }
+  .check__aside .figure { height:360px; max-width:620px; margin:auto; }
+}
+:root[data-theme="dark"] .check__title { text-shadow:0 0 32px rgba(174,100,255,.16); }
+:root[data-theme="dark"] .tick { border-color:rgba(149,167,237,.30); background:rgba(12,18,40,.26); border-radius:10px; transition:transform .2s,background .2s; }
+:root[data-theme="dark"] .tick:hover { background:rgba(61,42,112,.28); transform:translateX(2px); }

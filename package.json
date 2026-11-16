@@ -1,0 +1,16 @@
+{
+  "name": "predictv",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Petrol motorbike fault finder: React frontend, FastAPI backend, SQLite database, trained ML model.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "node scripts/run.mjs dev",
+    "build": "node scripts/run.mjs build",
+    "start": "node scripts/run.mjs start",
+    "test": "node scripts/run.mjs test",
+    "train": "node scripts/run.mjs train",
+    "train:symptoms": "node scripts/run.mjs train-symptoms"
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "trained_on": "2026-11-13",
+  "sklearn_version": "1.9.1",
+  "dataset": {
+    "name": "EngineFaultDB",
+    "rows_raw": 55999,
+    "rows_used": 55998,
+    "original_class_counts": {
+      "no_fault": 16000,
+      "rich_mixture": 10998,
+      "lean_mixture": 15000,
+      "low_voltage": 14000
+    },
+    "app_class_counts": {
+      "normal": 16000,
+      "rich": 10998,
+      "lean_or_ignition": 29000
+    }
+  },
+  "classes": [
+    "normal",
+    "rich",
+    "lean_or_ignition"
+  ],
+  "models": {
+    "full": {
+      "holdout_accuracy": 0.9992,
+      "holdout_macro_f1": 0.9991,
+      "holdout_confusion_matrix": [
+        [
+          3199,
+          0,
+          1
+        ],
+        [
+          2,
+          2193,
+          5
+        ],
+        [
+          1,
+          0,
+          5799
+        ]
+      ],
+      "holdout_test_rows": 11200,
+      "blocked_cv_accuracy_mean": 0.9808,
+      "blocked_cv_accuracy_std": 0.0354,
+      "blocked_cv_macro_f1_mean": 0.9799,
+      "features": [
+        "CO",
+        "HC",
+        "CO2",
+        "O2",
+        "Lambda"
+      ],
+      "training_range": {
+        "CO": [
+          0.421,
+          10.132
+        ],
+        "HC": [
+          1.787,
+          975.657
+        ],
+        "CO2": [
+          8.649,
+          15.129
+        ],
+        "O2": [
+          0.203,
+          1.151
+        ],
+        "Lambda": [
+          0.695,
+          1.149
+        ]
+      },
+      "feature_importance": {
+        "CO": 0.3579,
+        "HC": 0.1903,
+        "CO2": 0.1616,
+        "O2": 0.2502,
+        "Lambda": 0.04
+      }
+    },
+    "basic": {
+      "holdout_accuracy": 0.9296,
+      "holdout_macro_f1": 0.9253,
+      "holdout_confusion_matrix": [
+        [
+          2927,
+          27,
+          246
+        ],
+        [
+          24,
+          1979,
+          197
+        ],
+        [
+          143,
+          151,
+          5506
+        ]
+      ],
+      "holdout_test_rows": 11200,
+      "blocked_cv_accuracy_mean": 0.9079,
+      "blocked_cv_accuracy_std": 0.0284,
+      "blocked_cv_macro_f1_mean": 0.9042,
+      "features": [
+        "CO",
+        "HC"
+      ],
+      "training_range": {
+        "CO": [
+          0.421,
+          10.132
+        ],
+        "HC": [
+          1.787,
+          975.657
+        ]
+      },
+      "feature_importance": {
+        "CO": 0.6426,
+        "HC": 0.3574
+      }
+    }
+  },
+  "four_class_check": {
+    "accuracy": 0.7425,
+    "labels": [
+      "no_fault",
+      "rich_mixture",
+      "lean_mixture",
+      "low_voltage"
+    ],
+    "confusion_matrix": [
+      [
+        3200,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        2196,
+        0,
+        3
+      ],
+      [
+        2,
+        1,
+        1567,
+        1430
+      ],
+      [
+        3,
+        1,
+        1443,
+        1353
+      ]
+    ],
+    "lean_vs_low_voltage_accuracy": 0.5041
+  }
+}
