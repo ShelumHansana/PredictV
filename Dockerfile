@@ -1,23 +1,20 @@
-FROM python:3.11-slim
+# One image: builds the React app, then serves it and the API with uvicorn.
+FROM node:22-slim AS web
+WORKDIR /web
+COPY frontend/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend ./
+RUN npm run build
 
-WORKDIR /app
-
-# Install system dependencies needed for compiling packages like LightGBM, CatBoost
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Copy application files
-COPY . .
-
-# Expose default port
-EXPOSE 7860
-
-# Run FastAPI app
-CMD ["python", "server.py"]
+FROM python:3.12-slim
+WORKDIR /srv
+COPY backend/requirements.txt backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend backend
+# retrain so the saved models match the scikit-learn version in this image
+RUN python backend/ml/train.py
+COPY --from=web /web/dist frontend/dist
+ENV COOKIE_SECURE=1
+EXPOSE 8000
+WORKDIR /srv/backend
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

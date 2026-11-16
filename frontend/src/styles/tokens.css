@@ -1,0 +1,44 @@
+/* Design tokens. Change colours, type and spacing here and the whole app follows. */
+:root {
+  --font-display: "Barlow Condensed", "Noto Sans Sinhala", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Noto Sans Sinhala", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Noto Sans Sinhala", ui-monospace, monospace;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --page: 1320px;
+  --gutter: 20px;
+
+  /* light: workshop manual on warm paper */
+  --bg: #f3efe6;
+  --surface: #fbf9f4;
+  --sunken: #ebe6da;
+  --ink: #17150f;
+  --ink-2: #57524a;
+  --ink-3: #7a7468;
+  --line: rgba(23, 21, 15, 0.16);
+  --line-strong: rgba(23, 21, 15, 0.55);
+  --accent: #c8421b;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(200, 66, 27, 0.1);
+  --pass: #1c6b45;  --pass-soft: rgba(28, 107, 69, 0.1);
+  --warn: #8a5a0b;  --warn-soft: rgba(183, 121, 31, 0.14);
+  --fail: #a82a1c;  --fail-soft: rgba(168, 42, 28, 0.1);
+}
+
+:root[data-theme="dark"] {
+  --bg: #080c1c;
+  --surface: #151b33;
+  --sunken: #0c1127;
+  --ink: #f6f5ff;
+  --ink-2: #c0c6e0;
+  --ink-3: #949dbb;
+  --line: rgba(157,160,242,0.20);
+  --line-strong: rgba(169,178,245,0.44);
+  --accent: #c48aff;
+  --on-accent: #130d25;
+  --accent-soft: rgba(173,94,255,0.16);
+  --pass: #64e7ba; --pass-soft: rgba(100,231,186,0.12);
+  --warn: #ffce78; --warn-soft: rgba(255,206,120,0.14);
+  --fail: #ff928d; --fail-soft: rgba(255,146,141,0.12);
+}
