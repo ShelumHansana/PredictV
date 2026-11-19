@@ -37,7 +37,7 @@ const extra: Record<Lang, Record<string, string>> = {
     notfound: "Page not found", back_home: "Back to start", retry: "Try again",
     result_missing: "This check could not be found. It may have been deleted, or it was made in another browser.",
     theme_light: "Light", theme_dark: "Dark", theme_switch: "Switch to {x} theme", language: "Language",
-    footer: "PredictV · University project · Petrol motorbikes only",
+    footer: "PredictV · 2nd Year End Project · Petrol motorbikes only",
     saved_on: "Checked on {d}", new_check: "New check",
   },
   si: {
