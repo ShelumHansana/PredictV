@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/predictv/__init__.py
+src/predictv/cli.py
+src/predictv/features.py
+src/predictv/training.py
+src/predictv.egg-info/PKG-INFO
+src/predictv.egg-info/SOURCES.txt
+src/predictv.egg-info/dependency_links.txt
+src/predictv.egg-info/entry_points.txt
+src/predictv.egg-info/requires.txt
+src/predictv.egg-info/top_level.txt
